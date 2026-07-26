@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Daily Dua</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: #0F2C2C; }
+  body { font-family: 'Inter', sans-serif; color: #F2ECDD; }
+  #app { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; overflow: hidden; }
+  .app-scroll { height: 100vh; overflow-y: auto; padding-bottom: 100px; -webkit-overflow-scrolling: touch; }
+  .app-scroll::-webkit-scrollbar { display: none; }
+
+  .arch-card {
+    position: relative;
+    background: linear-gradient(180deg, #1B4544 0%, #14372F 100%);
+    border: 1px solid rgba(201,166,96,0.35);
+    border-radius: 140px 140px 20px 20px;
+    padding: 44px 28px 32px;
+    text-align: center;
+  }
+  .arch-card::before {
+    content: "";
+    position: absolute;
+    top: 18px; left: 18px; right: 18px; bottom: 18px;
+    border: 1px solid rgba(201,166,96,0.25);
+    border-radius: 120px 120px 12px 12px;
+    pointer-events: none;
+  }
+  .pill {
+    display: inline-block; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #C9A660; border: 1px solid rgba(201,166,96,0.5); border-radius: 999px;
+    padding: 4px 12px; font-weight: 600;
+  }
+  .arabic-text { font-family: 'Amiri', serif; direction: rtl; line-height: 2.1; }
+  .cat-chip {
+    font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 999px;
+    border: 1px solid rgba(242,236,221,0.18); color: #E9E1CC; background: rgba(255,255,255,0.03);
+  }
+  .dua-row {
+    display: flex; justify-content: space-between; align-items: center; padding: 16px 18px;
+    border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 10px; cursor: pointer;
+  }
+  .navbar {
+    position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
+    display: flex; justify-content: space-around; padding: 14px 0 max(20px, env(safe-area-inset-bottom));
+    background: linear-gradient(0deg, #0F2C2C 70%, rgba(15,44,44,0)); backdrop-filter: blur(6px);
+  }
+  .nav-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px;
+    color: rgba(242,236,221,0.5); background: none; border: none; font-weight: 600; font-family: inherit;
+  }
+  .nav-btn.active { color: #C9A660; }
+  .icon { width: 20px; height: 20px; }
+  .bookmark-icon { width: 16px; height: 16px; cursor: pointer; }
+  h1, h2, h3 { margin: 0; font-family: 'Lora', serif; }
+  .detail-view {
+    position: absolute; inset: 0; background: #0F2C2C; z-index: 20;
+    display: flex; flex-direction: column; padding: 24px 20px; overflow-y: auto;
+  }
+  .back-btn {
+    background: none; border: none; color: #C9A660; display: flex; align-items: center; gap: 4px;
+    font-weight: 600; font-size: 13px; cursor: pointer; margin-bottom: 20px; padding: 0; font-family: inherit;
+  }
+  .save-btn {
+    border: 1px solid rgba(201,166,96,0.5); border-radius: 999px; padding: 8px 18px; font-size: 13px;
+    font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: transparent; color: #C9A660;
+    font-family: inherit;
+  }
+  .save-btn.saved { background: #C9A660; color: #0F2C2C; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="app-scroll" id="screenContainer"></div>
+  <div id="detailContainer"></div>
+  <div class="navbar">
+    <button class="nav-btn" data-screen="home" onclick="setScreen('home')">🏠<span>Today</span></button>
+    <button class="nav-btn" data-screen="categories" onclick="setScreen('categories')">📖<span>Categories</span></button>
+    <button class="nav-btn" data-screen="bookmarks" onclick="setScreen('bookmarks')">🔖<span>Saved</span></button>
+  </div>
+</div>
+
+<script src="duas.js"></script>
+<script>
+let screen = 'home';
+let activeCategory = null;
+let bookmarks = new Set(JSON.parse(localStorage.getItem('dua_bookmarks') || '[]'));
+
+function saveBookmarks() {
+  localStorage.setItem('dua_bookmarks', JSON.stringify([...bookmarks]));
+}
+function toggleBookmark(id) {
+  bookmarks.has(id) ? bookmarks.delete(id) : bookmarks.add(id);
+  saveBookmarks();
+  render();
+}
+function dayOfYear() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  return Math.floor((now - start) / 86400000);
+}
+function setScreen(s, cat) {
+  screen = s;
+  if (cat) activeCategory = cat;
+  document.getElementById('detailContainer').innerHTML = '';
+  render();
+}
+function openDua(id) {
+  const dua = DUAS.find(d => d.id === id);
+  const isB = bookmarks.has(id);
+  document.getElementById('detailContainer').innerHTML = `
+    <div class="detail-view">
+      <button class="back-btn" onclick="closeDua()">← Back</button>
+      <span class="pill" style="align-self:flex-start">${dua.category}</span>
+      <h2 style="font-size:22px;font-weight:600;margin:16px 0 24px;">${dua.title}</h2>
+      <div class="arabic-text" style="font-size:26px;margin-bottom:22px;">${dua.arabic}</div>
+      <div style="font-size:13px;color:#C9A660;font-style:italic;margin-bottom:16px;line-height:1.7;">${dua.transliteration}</div>
+      <div style="font-size:15px;color:rgba(242,236,221,0.9);line-height:1.7;margin-bottom:20px;">${dua.translation}</div>
+      ${dua.repeat > 1 ? `<div style="font-size:13px;color:rgba(242,236,221,0.55);margin-bottom:20px;">Recite ${dua.repeat} times</div>` : ''}
+      <button class="save-btn ${isB ? 'saved' : ''}" style="margin-top:auto;" onclick="toggleBookmark(${id}); openDua(${id});">
+        ${isB ? '★ Saved' : '☆ Save this dua'}
+      </button>
+    </div>`;
+}
+function closeDua() { document.getElementById('detailContainer').innerHTML = ''; }
+
+function render() {
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.screen === screen ||
+      (screen === 'categoryList' && b.dataset.screen === 'categories'));
+  });
+  const el = document.getElementById('screenContainer');
+  if (screen === 'home') {
+    const today = DUAS[dayOfYear() % DUAS.length];
+    const isB = bookmarks.has(today.id);
+    const dateStr = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    el.innerHTML = `
+      <div style="padding:28px 20px 10px;">
+        <div style="text-align:center;margin-bottom:22px;">
+          <div style="font-family:'Lora',serif;font-style:italic;font-size:13px;color:rgba(242,236,221,0.55);">${dateStr}</div>
+          <h1 style="font-size:26px;font-weight:600;margin-top:4px;">Today's Dua</h1>
+        </div>
+        <div class="arch-card">
+          <span class="pill">${today.category}</span>
+          <h3 style="font-size:17px;font-weight:600;margin:16px 0 20px;color:#F2ECDD;">${today.title}</h3>
+          <div class="arabic-text" style="font-size:24px;color:#F2ECDD;margin-bottom:18px;">${today.arabic}</div>
+          <div style="font-size:13px;color:#C9A660;font-style:italic;margin-bottom:14px;line-height:1.6;">${today.transliteration}</div>
+          <div style="font-size:14px;color:rgba(242,236,221,0.85);line-height:1.6;">${today.translation}</div>
+          ${today.repeat > 1 ? `<div style="margin-top:16px;font-size:12px;color:rgba(242,236,221,0.5);">Recite ${today.repeat} times</div>` : ''}
+          <button class="save-btn ${isB ? 'saved' : ''}" style="margin-top:22px;" onclick="toggleBookmark(${today.id})">
+            ${isB ? '★ Saved' : '☆ Save'}
+          </button>
+        </div>
+        <div style="margin-top:26px;font-size:12px;color:rgba(242,236,221,0.4);text-align:center;line-height:1.6;">
+          A new dua rotates in every day.<br/>Browse all duas under Categories.
+        </div>
+      </div>`;
+  } else if (screen === 'categories') {
+    const cats = [...new Set(DUAS.map(d => d.category))];
+    el.innerHTML = `
+      <div style="padding:28px 20px;">
+        <h1 style="font-size:24px;font-weight:600;margin-bottom:20px;">Categories</h1>
+        ${cats.map(cat => {
+          const count = DUAS.filter(d => d.category === cat).length;
+          return `<div class="dua-row" onclick="setScreen('categoryList', '${cat}')">
+            <div>
+              <div style="font-weight:600;font-size:15px;">${cat}</div>
+              <div style="font-size:12px;color:rgba(242,236,221,0.5);margin-top:2px;">${count} dua${count > 1 ? 's' : ''}</div>
+            </div>
+            <span style="color:#C9A660;">›</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+  } else if (screen === 'categoryList') {
+    const items = DUAS.filter(d => d.category === activeCategory);
+    el.innerHTML = `
+      <div style="padding:20px 20px;">
+        <button class="back-btn" onclick="setScreen('categories')">← Categories</button>
+        <h2 style="font-size:22px;font-weight:600;margin-bottom:18px;">${activeCategory}</h2>
+        ${items.map(d => `
+          <div class="dua-row" onclick="openDua(${d.id})">
+            <div style="font-size:14px;font-weight:500;padding-right:10px;">${d.title}</div>
+            <span class="bookmark-icon" style="color:${bookmarks.has(d.id) ? '#C9A660' : 'rgba(242,236,221,0.35)'}" onclick="event.stopPropagation(); toggleBookmark(${d.id});">${bookmarks.has(d.id) ? '★' : '☆'}</span>
+          </div>`).join('')}
+      </div>`;
+  } else if (screen === 'bookmarks') {
+    const items = DUAS.filter(d => bookmarks.has(d.id));
+    el.innerHTML = `
+      <div style="padding:28px 20px;">
+        <h1 style="font-size:24px;font-weight:600;margin-bottom:20px;">Saved Duas</h1>
+        ${items.length === 0
+          ? `<div style="text-align:center;margin-top:60px;color:rgba(242,236,221,0.45);font-size:14px;line-height:1.7;">Nothing saved yet.<br/>Tap the star icon on any dua to keep it here.</div>`
+          : items.map(d => `
+            <div class="dua-row" onclick="openDua(${d.id})">
+              <div>
+                <div style="font-size:14px;font-weight:500;">${d.title}</div>
+                <div style="font-size:11px;color:#C9A660;margin-top:2px;">${d.category}</div>
+              </div>
+              <span class="bookmark-icon" style="color:#C9A660" onclick="event.stopPropagation(); toggleBookmark(${d.id});">★</span>
+            </div>`).join('')}
+      </div>`;
+  }
+}
+render();
+</script>
+</body>
+</html>

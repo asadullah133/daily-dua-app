@@ -1,0 +1,7 @@
+{
+  "appId": "com.yourname.dailydua",
+  "appName": "Daily Dua",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "backgroundColor": "#0F2C2C"
+}
