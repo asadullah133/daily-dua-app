@@ -1,0 +1,34 @@
+workflows:
+  android-workflow:
+    name: Daily Dua Android Build
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      node: 20
+      vars:
+        PACKAGE_NAME: "com.asadullah.dailydua"
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install
+      - name: Install Capacitor CLI
+        script: |
+          npm install -g @capacitor/cli
+      - name: Add Android platform
+        script: |
+          npx cap add android || true
+          npx cap sync android
+      - name: Build Android APK (debug)
+        script: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true
